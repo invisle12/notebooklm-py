@@ -484,6 +484,43 @@ class TestLoginCommand:
         assert "Already logged in" in result.output
         mock_page.wait_for_url.assert_not_called()
 
+    def test_login_signed_out_app_shell_redirects_to_sign_in(
+        self, runner, mock_login_browser_with_storage
+    ):
+        """Landing on the app host without a Google session must not skip sign-in.
+
+        Google now serves the app shell to signed-out visitors, so the host
+        alone used to report "Already logged in" and save an empty jar.
+        """
+        mock_page = mock_login_browser_with_storage
+        mock_context = mock_page.context
+        signed_in_state = mock_context.storage_state.return_value
+        mock_context.storage_state.return_value = {
+            "cookies": [{"name": "NID", "value": "nid", "domain": ".google.com", "path": "/"}],
+            "origins": [],
+        }
+
+        def succeed(predicate, **kwargs):
+            mock_context.storage_state.return_value = signed_in_state
+            mock_page.url = "https://notebook.google.com/"
+
+        def goto(url, **kwargs):
+            mock_page.url = url
+
+        mock_page.goto.side_effect = goto
+        mock_page.wait_for_url.side_effect = succeed
+
+        result = runner.invoke(cli, ["login"])
+
+        assert result.exit_code == 0, result.output
+        assert "Already logged in" not in result.output
+        assert any(
+            call.args[0].startswith("https://accounts.google.com/ServiceLogin?continue=")
+            for call in mock_page.goto.call_args_list
+        )
+        mock_page.wait_for_url.assert_called_once()
+        assert "Login detected" in result.output
+
     def test_login_auto_detect_waits_for_url_when_not_logged_in(
         self, runner, mock_login_browser_with_storage
     ):

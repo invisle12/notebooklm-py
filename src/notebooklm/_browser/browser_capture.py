@@ -78,6 +78,7 @@ from .navigation_errors import (
     is_navigation_race,
     navigation_error_code,
 )
+from .session_probe import context_has_google_session, google_sign_in_url
 
 if TYPE_CHECKING:
     from playwright.sync_api import BrowserContext, Page
@@ -974,7 +975,7 @@ def run_browser_capture(
                 #     session is ALSO dead; fail loudly (raise) rather than
                 #     hang. ``HeadlessLoginRequiredError`` is the typed,
                 #     honest signal the caller maps to a FAILED outcome.
-                if not url_matches_base_host(page.url):
+                if not url_matches_base_host(page.url) or not context_has_google_session(context):
                     logger.warning(
                         "Headless re-auth: landed off-host after navigation "
                         "(the persisted browser profile's Google session is "
@@ -985,12 +986,28 @@ def run_browser_capture(
                         "persisted browser profile's Google session is "
                         "expired. Run 'notebooklm login' to re-authenticate."
                     )
-            elif url_matches_base_host(page.url) and navigation_committed:
+            elif (
+                url_matches_base_host(page.url)
+                and navigation_committed
+                and context_has_google_session(context)
+            ):
                 # Persistent browser profile already has a valid session. Gated on
                 # a committed navigation: after the retry loop breaks on repeated
                 # aborts, this URL is the restored tab's, not ours (#2260 review).
+                # Also gated on a Google session cookie: the app host now renders
+                # for signed-out visitors, so the URL alone proves nothing.
                 io.emit("[green]Already logged in.[/green]")
             else:
+                if url_matches_base_host(page.url):
+                    # Signed-out visitor on the app shell: Google will not
+                    # redirect to sign-in on its own, so the landing wait below
+                    # would succeed at once with an empty jar. Send the browser
+                    # to the sign-in page, continuing back to the app host.
+                    try:
+                        page.goto(google_sign_in_url(), wait_until="commit", timeout=30000)
+                    except PlaywrightError as exc:
+                        if not is_navigation_race(str(exc)):
+                            raise
                 io.emit("\n[bold green]Instructions:[/bold green]")
                 io.emit("1. Complete the Google login in the browser window")
                 io.emit("2. Authentication will be saved automatically once login is detected\n")

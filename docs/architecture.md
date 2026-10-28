@@ -2068,6 +2068,7 @@ Per-file index plus the full `src/notebooklm` + `tests` repository tree. The tre
 | `_auth/account_email.py` | Generation-safe persisted/live account-email matching, probing, cache results, and exact-document CAS self-heal |
 | `_browser/browser_capture.py` | One deep browser launch→capture→filter→heal→persist implementation, lazy Playwright; depends downward on typed `_auth` storage/policy owners |
 | `_browser/navigation_errors.py` | Pure `net::ERR_*` and navigation-race/failure classification leaf |
+| `_browser/session_probe.py` | Signed-in probe (Google session cookie present) and sign-in URL for the login capture |
 | `_browser/browser_launch_errors.py` | Pure browser-channel registry and launch-failure triage leaf |
 | `_browser/headless_reauth.py` | Opt-in layer-3 browser recovery implementation behind `_auth.recovery_rungs` |
 | `_browser/oauth_token.py` | Visible EmbeddedSetup OAuth-cookie capture implementation |
@@ -2444,6 +2445,7 @@ src/notebooklm/
 │   ├── browser_capture.py       # Browser launch→capture→filter→heal→persist core; lazy Playwright
 │   ├── browser_launch_errors.py # Channel registry + launch-failure triage
 │   ├── navigation_errors.py     # Pure navigation-race/failure classification
+│   ├── session_probe.py         # Signed-in cookie probe + sign-in URL for login capture
 │   ├── headless_reauth.py       # Opt-in L3 implementation behind the neutral auth rung
 │   └── oauth_token.py           # Visible EmbeddedSetup OAuth-cookie capture
 ├── _types/                      # Dataclass implementation package re-exported by types.py
